@@ -1,0 +1,16 @@
+# ignore everything...
+*
+
+# ...except these files...
+!/.gitignore
+!/.markdownlint.yaml
+
+!*.go
+!go.sum
+!go.mod
+
+!README.md
+!LICENSE
+
+# ...even if they are in subdirectories
+!*/
