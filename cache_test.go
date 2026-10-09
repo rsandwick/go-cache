@@ -355,3 +355,47 @@ func Example_heterogeneousCache() {
 	// Loaded 2 users. First user: Alice
 	// Type verification caught error successfully.
 }
+
+func Example_distinctKeys() {
+	const M = 10
+	const N = 5
+	const payload = "payload"
+	var resourcesCreated, totalCalls int64
+
+	c := NewSync()
+	wg := &sync.WaitGroup{}
+
+	fetchResource := func() (string, error) {
+		// The initializer runs exactly once under concurrent load
+		time.Sleep(500 * time.Millisecond)
+		atomic.AddInt64(&resourcesCreated, 1)
+		return payload, nil
+	}
+
+	start := time.Now()
+	// Create N distinct resources, and retrieve each one from M concurrent
+	// callers; note that distinct keys do not interfere with one another's
+	// flight-tracking.
+	for n := range N {
+		key := fmt.Sprintf("resource:%d", n)
+		for range M {
+			wg.Go(func() {
+				if v, _ := GetOrCreate(c, key, fetchResource); v == payload {
+					atomic.AddInt64(&totalCalls, 1)
+				}
+			})
+		}
+	}
+	wg.Wait()
+	elapsed := time.Since(start)
+	ranInTime := elapsed < 600*time.Millisecond
+
+	fmt.Printf("number of resources created: %d\n", resourcesCreated)
+	fmt.Printf("number of correct results: %d\n", totalCalls)
+	fmt.Printf("ran in approximately one initializer time: %v\n", ranInTime)
+
+	// Output:
+	// number of resources created: 5
+	// number of correct results: 50
+	// ran in approximately one initializer time: true
+}

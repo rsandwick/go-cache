@@ -6,6 +6,8 @@ import (
 	"sync"
 )
 
+// ErrTypeMismatch indicates a cached value exists but does not match the
+// requested type. Use [errors.Is] to check for this error.
 var ErrTypeMismatch = errors.New("cache: type mismatch")
 
 func typeMismatchError(key string, value, zero any) error {
@@ -28,17 +30,18 @@ type flight struct {
 	err   error
 }
 
-type SimpleCache struct {
-	entries map[string]any
-}
-
-// New creates a simple, in-memory key-value cache.
+// SimpleCache is a simple, in-memory key-value cache.
 //
 // Entries remain in the cache indefinitely. If memory management or resource
 // eviction is required, entries must be removed manually using [Delete].
 //
-// The returned cache is not safe for concurrent use, but should be faster
-// than [SyncCache] in cases where synchronization is unnecessary.
+// SimpleCache is unsafe for concurrent use, but should be faster than
+// [SyncCache] in cases where synchronization is unnecessary.
+type SimpleCache struct {
+	entries map[string]any
+}
+
+// New creates a [SimpleCache] instance.
 func New() *SimpleCache {
 	return &SimpleCache{
 		entries: make(map[string]any),
@@ -138,15 +141,24 @@ func (c *SimpleCache) resolveFlight(
 	}
 }
 
+// SyncCache is a simple, in-memory, concurrent-safe key-value cache.
+//
+// When used with [GetOrCreate], if the given key is not yet populated, the
+// initializer function is guaranteed to run exactly once.
+//
+// If the initializer is running when another goroutine calls
+// [GetOrCreate] for the same key, that goroutine will block until it returns,
+// and it will receive the same value or error returned by the first caller's
+// initializer.
+//
+// Entries remain in the cache indefinitely. If memory management or resource
+// eviction is required, entries must be removed manually using [Delete].
 type SyncCache struct {
 	mu sync.RWMutex
 	SimpleCache
 }
 
-// NewSync creates a simple, in-memory, concurrent-safe key-value cache.
-//
-// Entries remain in the cache indefinitely. If memory management or resource
-// eviction is required, entries must be removed manually using [Delete].
+// NewSync creates a [SyncCache] instance.
 func NewSync() *SyncCache {
 	return &SyncCache{entries: make(map[string]any)}
 }
